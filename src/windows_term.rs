@@ -221,6 +221,8 @@ pub fn read_single_key() -> io::Result<Key> {
                 // a special keycode for `Enter`, while ReadConsoleInputW() prefers to use '\r'.
                 if c == '\r' {
                     Ok(Key::Enter)
+                } else if c == '\x08' {
+                    Ok(Key::Back)
                 } else {
                     Ok(Key::Char(c))
                 }
@@ -320,9 +322,20 @@ fn read_key_event() -> io::Result<KEY_EVENT_RECORD> {
 
         key_event = unsafe { mem::transmute(buffer.Event) };
 
+        // This is a key being released; ignore it.
         if key_event.bKeyDown == 0 {
-            // This is a key being released; ignore it.
             continue;
+        }
+
+        // This is a shift; ignore it.
+        if unsafe { *key_event.uChar.UnicodeChar() } == 0 {
+            match key_event.wVirtualKeyCode as INT {
+                winapi::um::winuser::VK_SHIFT |
+                winapi::um::winuser::VK_CONTROL => {
+                    continue;
+                }
+                _ => {}
+            }
         }
 
         return Ok(key_event);
